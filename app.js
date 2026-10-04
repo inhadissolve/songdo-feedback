@@ -1,9 +1,11 @@
-// 참석자 화면: 주제 10개, 폰에 자동 저장, 서버 자동 전송. 관리자 화면은 #admin일 때 admin.js를 불러온다.
+// 참석자 화면: 조별 피드백 칸, 폰에 자동 저장, 서버 자동 전송. 관리자 화면은 #admin일 때 admin.js를 불러온다.
 import { DEFAULT_TOPICS, newDeviceId, snapshot, groupTopics } from './logic.js';
 
-const N = 10;
-const KEY = 'inha-feedback:v1';
-const TOPICS_KEY = 'inha-feedback:topics';
+const N = DEFAULT_TOPICS.length;
+// 저장 키 앞부분. 같은 github.io 주소의 다른 피드백 사이트와 저장값이 섞이지 않게 사이트마다 다르게 둔다.
+export const STORE = 'songdo-feedback';
+const KEY = `${STORE}:v1`;
+const TOPICS_KEY = `${STORE}:topics`;
 const $ = (sel) => document.querySelector(sel);
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
@@ -111,6 +113,7 @@ function updateLabels() {
   topics.forEach((t, i) => {
     $(`#title-${t.id}`).textContent = t.title;
     $(`#presenter-${t.id}`).textContent = t.presenter;
+    $(`#pl-${t.id}`).hidden = !t.presenter; // 발표자가 비어 있으면 줄을 숨긴다
     markChip(i);
   });
 }
@@ -141,7 +144,8 @@ function renderParticipant() {
           el('span', { className: 'topic-num', textContent: String(t.id) }),
           ' ', // 화면 읽기 프로그램이 "3 에덴동산"으로 읽도록
           el('span', { id: `title-${t.id}`, textContent: t.title })),
-        el('p', { className: 'presenter' }, '발표 ', el('span', { id: `presenter-${t.id}`, textContent: t.presenter })),
+        el('p', { className: 'presenter', id: `pl-${t.id}`, hidden: !t.presenter },
+          '발표 ', el('span', { id: `presenter-${t.id}`, textContent: t.presenter })),
         area,
         status));
 
@@ -158,7 +162,7 @@ function renderParticipant() {
   }
 }
 
-// 지난번에 보낸 내용과 다를 때만 10칸 전체를 보낸다. 한 번에 하나씩만 보낸다.
+// 지난번에 보낸 내용과 다를 때만 모든 칸을 보낸다. 한 번에 하나씩만 보낸다.
 let sending = null;
 
 async function sync(keepalive = false) {

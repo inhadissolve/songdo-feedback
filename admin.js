@@ -1,12 +1,12 @@
 // 관리자 화면(#admin). 비밀번호는 서버가 확인하고, 이 탭을 닫을 때까지만 기억한다.
-import { el, post, read, write, session, getTopicList, setTopicList } from './app.js';
-import { groupTopics, feedbackFor, groupCopyText } from './logic.js';
+import { el, post, read, write, session, getTopicList, setTopicList, STORE } from './app.js';
+import { groupTopics, feedbackFor, groupCopyText, topicLabel } from './logic.js';
 
-const PIN_KEY = 'inha-feedback:pin';
+const PIN_KEY = `${STORE}:pin`;
 const $ = (sel) => document.querySelector(sel);
 const pageUrl = location.origin + location.pathname;
 let lastEntries = [];
-let presentersRendered = false;
+let fieldsRendered = false;
 
 $('#share-url').textContent = pageUrl;
 $('#copy-link').addEventListener('click', (e) => copyText(pageUrl, e.currentTarget));
@@ -29,7 +29,7 @@ $('#refresh').addEventListener('click', async () => {
   if (error && error !== 'pin') msg.textContent = '불러오지 못했어요. 다시 눌러 주세요.';
 });
 
-$('#presenters').addEventListener('submit', savePresenters);
+$('#presenters').addEventListener('submit', saveTopics);
 
 export async function openAdmin() {
   const pin = read(session, PIN_KEY);
@@ -64,43 +64,50 @@ async function load(pin) {
   setTopicList(data.topics);
   $('#login').hidden = true;
   $('#admin-body').hidden = false;
-  if (!presentersRendered) {
-    renderPresenterFields();
-    presentersRendered = true;
+  if (!fieldsRendered) {
+    renderTopicFields();
+    fieldsRendered = true;
   }
   lastEntries = data.entries;
   renderResults();
   return null;
 }
 
-function renderPresenterFields() {
+// 조마다 주제(필수)와 발표자(선택) 칸.
+function renderTopicFields() {
   $('#presenter-fields').replaceChildren(...getTopicList().map((t) =>
-    el('label', { className: 'field' },
-      el('span', { className: 'field-label', textContent: `${t.group} · ${t.id}. ${t.title}` }),
-      el('input', { name: `p${t.id}`, value: t.presenter, maxLength: 30, autocomplete: 'off' }))));
+    el('div', { className: 'topic-fields' },
+      el('p', { className: 'topic-fields-name', textContent: t.group }),
+      el('label', { className: 'field' },
+        el('span', { className: 'field-label', textContent: '주제' }),
+        el('input', { name: `t${t.id}`, value: t.title, maxLength: 40, autocomplete: 'off' })),
+      el('label', { className: 'field' },
+        el('span', { className: 'field-label', textContent: '발표자 (선택)' }),
+        el('input', { name: `p${t.id}`, value: t.presenter, maxLength: 30, autocomplete: 'off' })))));
 }
 
-async function savePresenters(e) {
+async function saveTopics(e) {
   e.preventDefault();
   const form = e.currentTarget;
   const msg = $('#presenter-msg');
   const topics = getTopicList();
+  const titles = topics.map((t) => form.elements[`t${t.id}`].value.trim());
   const presenters = topics.map((t) => form.elements[`p${t.id}`].value.trim());
-  if (presenters.some((p) => !p)) {
-    msg.textContent = '발표자 이름을 모두 채워 주세요.';
+  if (titles.some((t) => !t)) {
+    msg.textContent = '주제를 모두 채워 주세요. 정해지지 않았으면 "1조 발표"처럼 두세요.';
     return;
   }
   msg.textContent = '저장하는 중이에요...';
   let data;
   try {
-    data = await post({ action: 'presenters', pin: read(session, PIN_KEY), presenters });
+    data = await post({ action: 'topics', pin: read(session, PIN_KEY), titles, presenters });
   } catch {
     data = { ok: false };
   }
   if (data.ok) {
-    setTopicList(topics.map((t, i) => ({ ...t, presenter: presenters[i] })));
+    setTopicList(topics.map((t, i) => ({ ...t, title: titles[i], presenter: presenters[i] })));
     renderResults();
-    msg.textContent = '저장했어요. 참석자 화면은 새로 열면 바뀐 이름이 보여요.';
+    msg.textContent = '저장했어요. 참석자 화면은 새로 열면 바뀐 내용이 보여요.';
   } else {
     msg.textContent = data.error === 'pin' ? '비밀번호가 맞지 않아요. 다시 들어와 주세요.' : '저장하지 못했어요. 다시 눌러 주세요.';
   }
@@ -123,7 +130,7 @@ function renderResults() {
           el('p', { className: 'feedback-name', textContent: f.name })));
       }
       section.append(
-        el('h4', { textContent: `${t.id}. ${t.title} (발표: ${t.presenter})` }),
+        el('h4', { textContent: topicLabel(t) }),
         el('p', { className: 'count', textContent: `피드백 ${items.length}개` }),
         list);
     }

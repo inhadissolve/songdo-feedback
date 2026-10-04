@@ -1,4 +1,4 @@
-/* 토큰: 강조색 하나(밭 초록), 모서리 12px 하나, 라이트/다크 */
+/* 토큰: 강조색 하나(초록), 모서리 12px 하나, 라이트/다크 */
 :root {
   --bg: #f4f6f3;
   --surface: #fbfcfa;
@@ -59,13 +59,14 @@ h1 { margin: 0; font-size: 28px; line-height: 1.2; font-weight: 800; letter-spac
   font-size: 16px;
 }
 
-/* 1~10 바로가기: 쓴 주제는 밭처럼 초록으로 채워진다 */
+/* 번호 바로가기: 쓴 주제는 초록으로 채워진다 */
 .chips {
   position: sticky;
   top: 0;
   z-index: 1;
   display: grid;
-  grid-template-columns: repeat(10, minmax(0, 1fr));
+  grid-auto-flow: column; /* 주제 수만큼 같은 폭으로 나눈다 */
+  grid-auto-columns: minmax(0, 1fr);
   gap: 4px;
   margin: 0 -16px;
   padding: 8px 16px;
@@ -109,7 +110,7 @@ input:focus, textarea:focus {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 
-/* 조 하나가 밭 한 이랑: 굵은 초록 줄로 시작한다 */
+/* 조마다 굵은 초록 줄로 시작한다 */
 .group { margin-top: 36px; border-top: 3px solid var(--accent); }
 .group-name { margin: 10px 0 0; font-size: 17px; font-weight: 800; }
 .topic { padding: 16px 0 4px; scroll-margin-top: 68px; }
@@ -194,3 +195,5 @@ input:focus, textarea:focus {
 .feedback-list li.empty { border-style: dashed; background: none; color: var(--muted); font-size: 15px; }
 .feedback-text { margin: 0; font-size: 16px; white-space: pre-wrap; }
 .feedback-name { margin: 4px 0 0; font-size: 14px; color: var(--muted); }
+.topic-fields { display: grid; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.topic-fields-name { margin: 0; font-size: 17px; font-weight: 800; }
