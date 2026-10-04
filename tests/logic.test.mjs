@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_TOPICS, newDeviceId, snapshot, groupTopics, feedbackFor, groupCopyText } from '../logic.js';
+import { DEFAULT_TOPICS, newDeviceId, snapshot, groupTopics, feedbackFor, groupCopyText, topicLabel } from '../logic.js';
 import { loadServer } from './fake-gas.mjs';
 
 test('화면 기본 주제 목록은 서버 setup 목록과 같다', () => {
@@ -17,16 +17,21 @@ test('snapshot은 이름과 칸 내용이 같을 때만 같다', () => {
   assert.notEqual(snapshot('a', ['x', '']), snapshot('a', ['x ', '']));
 });
 
-test('groupTopics는 조 5개에 주제 2개씩, 순서를 지킨다', () => {
+test('groupTopics는 조 4개에 주제 1개씩, 순서를 지킨다', () => {
   const groups = groupTopics(DEFAULT_TOPICS);
-  assert.deepEqual(groups.map((g) => g.group), ['형제1조', '형제2조', '형제3조', '자매1조', '자매2조']);
-  assert.deepEqual(groups.map((g) => g.topics.map((t) => t.id)), [[1, 2], [3, 4], [5, 6], [7, 8], [9, 10]]);
+  assert.deepEqual(groups.map((g) => g.group), ['1조', '2조', '3조', '4조']);
+  assert.deepEqual(groups.map((g) => g.topics.map((t) => t.id)), [[1], [2], [3], [4]]);
 });
 
-const entry = (name, byIndex) => ({ name, clientTime: 1, answers: Object.assign(Array(10).fill(''), byIndex) });
+test('topicLabel은 발표자가 있을 때만 발표자를 붙인다', () => {
+  assert.equal(topicLabel({ id: 1, title: '창조', presenter: '' }), '1. 창조');
+  assert.equal(topicLabel({ id: 2, title: '부활', presenter: '발표자' }), '2. 부활 (발표: 발표자)');
+});
+
+const entry = (name, byIndex) => ({ name, clientTime: 1, answers: Object.assign(Array(DEFAULT_TOPICS.length).fill(''), byIndex) });
 
 test('feedbackFor는 빈 칸을 빼고, 이름이 없으면 익명, 줄바꿈을 정리한다', () => {
-  const entries = [entry('', { 0: '  좋았어요 ' }), entry('민지', { 0: '첫 줄\r\n둘째 줄' }), entry('준호', { 1: '다른 주제' })];
+  const entries = [entry('', { 0: '  좋았어요 ' }), entry('민지', { 0: '첫 줄\r\n둘째 줄' }), entry('준호', { 1: '다른 조' })];
   assert.deepEqual(feedbackFor(DEFAULT_TOPICS[0], entries), [
     { name: '익명', text: '좋았어요' },
     { name: '민지', text: '첫 줄\n둘째 줄' },
@@ -34,17 +39,15 @@ test('feedbackFor는 빈 칸을 빼고, 이름이 없으면 익명, 줄바꿈을
 });
 
 test('groupCopyText는 이름 없이 조별 문구를 만든다', () => {
-  const [first] = groupTopics(DEFAULT_TOPICS);
+  const [first, second] = groupTopics([{ ...DEFAULT_TOPICS[0], title: '창조', presenter: '발표자' }, ...DEFAULT_TOPICS.slice(1)]);
   const entries = [entry('민지', { 0: '예시가 좋았어요' }), entry('', { 0: '첫 줄\n둘째 줄' })];
   assert.equal(groupCopyText(first, entries), [
-    '[형제1조 피드백]',
+    '[1조 피드백]',
     '',
-    '1. 파스칼의 내기 (발표: 형제1)',
+    '1. 창조 (발표: 발표자)',
     '- 예시가 좋았어요',
     '- 첫 줄',
     '  둘째 줄',
-    '',
-    '2. 홍해의 기적 (발표: 형제2)',
-    '(피드백 없음)',
   ].join('\n'));
+  assert.equal(groupCopyText(second, entries), ['[2조 피드백]', '', '2. 2조 발표', '(피드백 없음)'].join('\n'));
 });

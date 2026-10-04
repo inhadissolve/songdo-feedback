@@ -1,16 +1,11 @@
 // 화면과 무관한 계산. 브라우저(app.js, admin.js)와 node 테스트가 함께 쓴다.
 
+// 서버 Code.gs의 TOPICS와 같아야 한다(테스트가 확인한다).
 export const DEFAULT_TOPICS = [
-  { id: 1, group: '형제1조', title: '파스칼의 내기', presenter: '형제1' },
-  { id: 2, group: '형제1조', title: '홍해의 기적', presenter: '형제2' },
-  { id: 3, group: '형제2조', title: '에덴동산', presenter: '형제1' },
-  { id: 4, group: '형제2조', title: '예수님의 부활', presenter: '형제2' },
-  { id: 5, group: '형제3조', title: '노아의 방주', presenter: '형제1' },
-  { id: 6, group: '형제3조', title: '기독교 질문', presenter: '형제2' },
-  { id: 7, group: '자매1조', title: '죽음에 관하여', presenter: '자매1' },
-  { id: 8, group: '자매1조', title: '전도서와 허무함', presenter: '자매2' },
-  { id: 9, group: '자매2조', title: '닭이 먼저냐 알이 먼저냐', presenter: '자매1' },
-  { id: 10, group: '자매2조', title: '666표', presenter: '자매2' },
+  { id: 1, group: '1조', title: '1조 발표', presenter: '' },
+  { id: 2, group: '2조', title: '2조 발표', presenter: '' },
+  { id: 3, group: '3조', title: '3조 발표', presenter: '' },
+  { id: 4, group: '4조', title: '4조 발표', presenter: '' },
 ];
 
 // 서버 검사 규칙 /^[a-z0-9]{8,40}$/ 를 만족한다.
@@ -30,6 +25,9 @@ export function groupTopics(topics) {
   return groups;
 }
 
+// "1. 주제 (발표: 이름)". 발표자가 비어 있으면 괄호를 붙이지 않는다.
+export const topicLabel = (t) => `${t.id}. ${t.title}${t.presenter ? ` (발표: ${t.presenter})` : ''}`;
+
 // 한 주제의 피드백 목록. 빈 칸은 빼고, 이름이 없으면 '익명'.
 export function feedbackFor(topic, entries) {
   return entries
@@ -44,7 +42,7 @@ export function feedbackFor(topic, entries) {
 export function groupCopyText(group, entries) {
   const lines = [`[${group.group} 피드백]`];
   for (const t of group.topics) {
-    lines.push('', `${t.id}. ${t.title} (발표: ${t.presenter})`);
+    lines.push('', topicLabel(t));
     const items = feedbackFor(t, entries);
     if (!items.length) lines.push('(피드백 없음)');
     for (const f of items) lines.push(`- ${f.text.split('\n').join('\n  ')}`);

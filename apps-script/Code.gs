@@ -1,19 +1,14 @@
-// 인하지구 밭갈이 리허설 피드백 서버.
+// 송도지구 발표 피드백 서버.
 // 구글 시트 > 확장 프로그램 > Apps Script에 붙여넣고, README의 순서대로 배포한다.
 
-const N = 10;
+// [id, 조, 주제, 발표자]. 주제와 발표자는 관리자 화면에서 바꾼다. 다른 모임용으로 복사할 때는 이 목록만 바꾼다.
 const TOPICS = [
-  ['1', '형제1조', '파스칼의 내기', '형제1'],
-  ['2', '형제1조', '홍해의 기적', '형제2'],
-  ['3', '형제2조', '에덴동산', '형제1'],
-  ['4', '형제2조', '예수님의 부활', '형제2'],
-  ['5', '형제3조', '노아의 방주', '형제1'],
-  ['6', '형제3조', '기독교 질문', '형제2'],
-  ['7', '자매1조', '죽음에 관하여', '자매1'],
-  ['8', '자매1조', '전도서와 허무함', '자매2'],
-  ['9', '자매2조', '닭이 먼저냐 알이 먼저냐', '자매1'],
-  ['10', '자매2조', '666표', '자매2'],
+  ['1', '1조', '1조 발표', ''],
+  ['2', '2조', '2조 발표', ''],
+  ['3', '3조', '3조 발표', ''],
+  ['4', '4조', '4조 발표', ''],
 ];
+const N = TOPICS.length;
 
 // 처음 한 번 실행한다. 다시 실행해도 이미 있는 데이터는 지우지 않는다.
 function setup() {
@@ -25,7 +20,7 @@ function setup() {
     topics.getRange(2, 1, N, 4).setValues(TOPICS);
   }
   const feedback = ss.getSheetByName('feedback') || ss.insertSheet('feedback');
-  feedback.getRange('A:N').setNumberFormat('@');
+  feedback.getRange('A:' + String.fromCharCode(64 + 4 + N)).setNumberFormat('@'); // 4열 + 주제 수(N ≤ 22)
   if (feedback.getLastRow() < 1) {
     const header = ['receivedAt', 'clientTime', 'deviceId', 'name'];
     for (let i = 1; i <= N; i++) header.push('t' + i);
@@ -51,7 +46,7 @@ function doPost(e) {
 function handle_(req) {
   if (!req || typeof req !== 'object') return { ok: false, error: 'invalid' };
   if (req.action === 'feedback') return saveFeedback_(req);
-  if (req.action === 'presenters') return checkPin_(req.pin) || savePresenters_(req.presenters);
+  if (req.action === 'topics') return checkPin_(req.pin) || saveTopics_(req.titles, req.presenters);
   if (req.action === 'results') return checkPin_(req.pin) || { ok: true, topics: readTopics_(), entries: latestEntries_() };
   return { ok: false, error: 'invalid' };
 }
@@ -89,9 +84,12 @@ function saveFeedback_(r) {
   return { ok: true };
 }
 
-function savePresenters_(list) {
-  if (!isList_(list, 30)) return { ok: false, error: 'invalid' };
-  sheet_('topics').getRange(2, 4, N, 1).setValues(list.map((p) => [esc_(p)]));
+// 주제는 필수(40자), 발표자는 비워도 된다(30자).
+function saveTopics_(titles, presenters) {
+  if (!isList_(titles, 40) || !isList_(presenters, 30) || titles.some((t) => !t.trim())) {
+    return { ok: false, error: 'invalid' };
+  }
+  sheet_('topics').getRange(2, 3, N, 2).setValues(titles.map((t, i) => [esc_(t), esc_(presenters[i])]));
   return { ok: true };
 }
 
