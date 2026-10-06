@@ -29,8 +29,10 @@ function setup() {
 }
 
 function doGet(e) {
-  const action = e && e.parameter && e.parameter.action;
-  return json_(action === 'topics' ? { ok: true, topics: readTopics_() } : { ok: false, error: 'invalid' });
+  const params = e && e.parameter || {};
+  if (params.action === 'topics') return json_({ ok: true, topics: readTopics_() });
+  if (params.action === 'published') return json_(readPublished_(Number(params.group)));
+  return json_({ ok: false, error: 'invalid' });
 }
 
 function doPost(e) {
@@ -47,7 +49,14 @@ function handle_(req) {
   if (!req || typeof req !== 'object') return { ok: false, error: 'invalid' };
   if (req.action === 'feedback') return saveFeedback_(req);
   if (req.action === 'topics') return checkPin_(req.pin) || saveTopics_(req.titles, req.presenters);
-  if (req.action === 'results') return checkPin_(req.pin) || { ok: true, topics: readTopics_(), entries: latestEntries_() };
+  if (req.action === 'publish') return checkPin_(req.pin) || savePublished_(req);
+  if (req.action === 'results') {
+    const error = checkPin_(req.pin);
+    if (error) return error;
+    const topics = readTopics_();
+    const groups = Array.from(new Set(topics.map((t) => t.group)));
+    return { ok: true, topics, entries: latestEntries_(), published: groups.map((_, i) => readPublished_(i + 1, topics)) };
+  }
   return { ok: false, error: 'invalid' };
 }
 
@@ -103,6 +112,68 @@ function latestEntries_() {
   const sh = sheet_('feedback');
   const count = sh.getLastRow() - 1;
   return count > 0 ? pickLatest_(sh.getRange(2, 1, count, 4 + N).getValues()) : [];
+}
+
+// 공개용 복사본만 별도 탭에 저장한다. topics와 feedback은 읽기만 한다.
+function publicGroup_(index, topics) {
+  const list = topics || readTopics_();
+  const names = Array.from(new Set(list.map((t) => t.group)));
+  if (!Number.isInteger(index) || index < 1 || index > names.length) return null;
+  const group = names[index - 1];
+  return { group, topics: list.filter((t) => t.group === group), count: names.length };
+}
+
+function savePublished_(req) {
+  const group = publicGroup_(req.group);
+  if (!group || !Array.isArray(req.items) || req.items.length !== group.topics.length ||
+      !req.items.every((item) => item && Array.isArray(item.feedbacks) && item.feedbacks.every((f) =>
+        f && isText_(f.name, 30) && isText_(f.text, 3000) && f.text.trim()))) {
+    return { ok: false, error: 'invalid' };
+  }
+  const card = { group: group.group, items: group.topics.map((t, i) => {
+    const feedbacks = req.items[i].feedbacks.map((f) => ({
+      name: f.name.trim() || '익명', text: f.text.replace(/\r\n?/g, '\n').trim(),
+    }));
+    return { label: `${t.id}. ${t.title}${t.presenter ? ` (발표: ${t.presenter})` : ''}`, count: feedbacks.length, feedbacks };
+  }) };
+  const publishedAt = new Date().toISOString();
+  // 피드백마다 한 셀을 사용한다. 긴 조도 한 셀의 50,000자 제한을 넘지 않는다.
+  const rows = [[JSON.stringify({ publishedAt, group: card.group, items: card.items.map((item) => ({ label: item.label })) })]];
+  card.items.forEach((item, topic) => item.feedbacks.forEach((f) => rows.push([JSON.stringify({ topic, name: f.name, text: f.text })])));
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) return { ok: false, error: 'busy' };
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sh = ss.getSheetByName('published') || ss.insertSheet('published');
+    if (sh.getLastRow() === 0) sh.getRange(1, 1, 1, group.count).setValues([Array.from({ length: group.count }, (_, i) => `group-${i + 1}`)]);
+    const count = Math.max(rows.length, sh.getLastRow() - 1);
+    if (count + 1 > sh.getMaxRows()) sh.insertRowsAfter(sh.getMaxRows(), count + 1 - sh.getMaxRows());
+    while (rows.length < count) rows.push(['']);
+    sh.getRange(2, req.group, count, 1).setNumberFormat('@').setValues(rows);
+  } finally {
+    lock.releaseLock();
+  }
+  return { ok: true, publishedAt, card };
+}
+
+function readPublished_(index, topics) {
+  const group = publicGroup_(index, topics);
+  if (!group) return { ok: false, error: 'invalid' };
+  const empty = { ok: true, publishedAt: null, card: { group: group.group, items: group.topics.map((t) => ({
+    label: `${t.id}. ${t.title}${t.presenter ? ` (발표: ${t.presenter})` : ''}`, count: 0, feedbacks: [],
+  })) } };
+  const sh = sheet_('published');
+  if (!sh || sh.getLastRow() < 2) return empty;
+  const rows = sh.getRange(2, index, sh.getLastRow() - 1, 1).getValues();
+  if (!rows[0][0]) return empty;
+  const data = JSON.parse(rows[0][0]);
+  const card = { group: data.group, items: data.items.map((item) => ({ label: item.label, count: 0, feedbacks: [] })) };
+  rows.slice(1).filter((r) => r[0]).forEach((r) => {
+    const f = JSON.parse(r[0]);
+    card.items[f.topic].feedbacks.push({ name: f.name, text: f.text });
+  });
+  card.items.forEach((item) => { item.count = item.feedbacks.length; });
+  return { ok: true, publishedAt: data.publishedAt, card };
 }
 
 // 기기마다 기기 시각이 가장 늦은 줄 하나. 같으면 나중 줄. 다 빈 항목은 뺀다.

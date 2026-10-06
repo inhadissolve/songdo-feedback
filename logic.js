@@ -73,3 +73,24 @@ export function selectedShareCards(topics, entries, selected) {
     }),
   }));
 }
+
+// 게시한 항목을 다시 체크한다. 같은 이름·내용이 반복되어도 게시한 개수만 선택한다.
+export function publishedSelection(topics, entries, published) {
+  const selected = new Set();
+  groupTopics(topics).forEach((group, groupIndex) => {
+    group.topics.forEach((topic, topicIndex) => {
+      const remaining = new Map();
+      for (const f of published[groupIndex]?.card.items[topicIndex]?.feedbacks || []) {
+        const key = JSON.stringify([f.name, f.text]);
+        remaining.set(key, (remaining.get(key) || 0) + 1);
+      }
+      feedbackFor(topic, entries).forEach((f, index) => {
+        const key = JSON.stringify([f.name, f.text]);
+        if (!remaining.get(key)) return;
+        selected.add(`${topic.id}:${index}`);
+        remaining.set(key, remaining.get(key) - 1);
+      });
+    });
+  });
+  return selected;
+}

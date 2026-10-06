@@ -16,6 +16,7 @@ function cellStore(apostrophe) {
 
 function makeSheet(store) {
   const rows = [];
+  let maxRows = 1000;
   const range = (row, col, numRows, numCols) => ({
     setNumberFormat() {
       return this;
@@ -35,6 +36,8 @@ function makeSheet(store) {
   return {
     rows,
     getLastRow: () => rows.length,
+    getMaxRows: () => maxRows,
+    insertRowsAfter(row, count) { maxRows += count; return this; },
     appendRow(values) {
       rows.push(Array.from(values, store)); // vm 쪽 배열을 바깥 배열로 복사
       return this;

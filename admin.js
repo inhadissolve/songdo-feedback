@@ -1,6 +1,6 @@
 // 관리자 화면(#admin). 비밀번호는 서버가 확인하고, 이 탭을 닫을 때까지만 기억한다.
 import { el, post, read, write, session, getTopicList, setTopicList, STORE } from './app.js';
-import { groupTopics, feedbackFor, groupCopyText, topicLabel, selectedShareCards } from './logic.js';
+import { groupTopics, feedbackFor, groupCopyText, topicLabel, selectedShareCards, publishedSelection } from './logic.js';
 
 const PIN_KEY = `${STORE}:pin`;
 const $ = (sel) => document.querySelector(sel);
@@ -9,6 +9,10 @@ let lastEntries = [];
 let fieldsRendered = false;
 let imageModule;
 const selected = new Set();
+let published = [];
+let publishing = false;
+const publishMessages = new Map();
+const hasPublished = () => published.some((group) => group.publishedAt);
 
 $('#share-url').textContent = pageUrl;
 $('#copy-link').addEventListener('click', (e) => copyText(pageUrl, e.currentTarget));
@@ -38,7 +42,7 @@ $('#share-toggle').addEventListener('click', (e) => {
   view.hidden = !view.hidden;
   e.currentTarget.setAttribute('aria-expanded', String(!view.hidden));
   e.currentTarget.textContent = view.hidden ? '공유용 보기' : '공유용 보기 닫기';
-  e.currentTarget.disabled = selected.size === 0 && view.hidden;
+  e.currentTarget.disabled = selected.size === 0 && !hasPublished() && view.hidden;
   if (!view.hidden) renderShareCards();
 });
 $('#print-all').addEventListener('click', () => window.print());
@@ -106,7 +110,10 @@ async function load(pin) {
     fieldsRendered = true;
   }
   lastEntries = data.entries;
+  published = data.published || [];
   selected.clear();
+  for (const key of publishedSelection(getTopicList(), lastEntries, published)) selected.add(key);
+  publishMessages.clear();
   renderResults();
   return null;
 }
@@ -164,12 +171,13 @@ function renderResults() {
       if (!items.length) list.append(el('li', { className: 'empty', textContent: '아직 피드백이 없어요.' }));
       for (const [index, f] of items.entries()) {
         const key = `${t.id}:${index}`;
-        const checkbox = el('input', { type: 'checkbox', checked: selected.has(key) });
+        const checkbox = el('input', { type: 'checkbox', checked: selected.has(key), disabled: publishing });
         checkbox.addEventListener('change', () => {
           if (checkbox.checked) selected.add(key);
           else selected.delete(key);
           $('#selected-count').textContent = `선택한 피드백 ${selected.size}개`;
-          $('#share-toggle').disabled = selected.size === 0 && $('#share-view').hidden;
+          $('#share-toggle').disabled = publishing || (selected.size === 0 && !hasPublished() && $('#share-view').hidden);
+          publishMessages.clear();
           if (!$('#share-view').hidden) renderShareCards();
         });
         list.append(el('li', {},
@@ -186,7 +194,7 @@ function renderResults() {
     return section;
   }));
   $('#selected-count').textContent = `선택한 피드백 ${selected.size}개`;
-  $('#share-toggle').disabled = selected.size === 0 && $('#share-view').hidden;
+  $('#share-toggle').disabled = publishing || (selected.size === 0 && !hasPublished() && $('#share-view').hidden);
   if (!$('#share-view').hidden) renderShareCards();
 }
 
@@ -205,25 +213,48 @@ function renderShareCards() {
         el('p', { className: 'count', textContent: `피드백 ${count}개` }), list));
     }
     const empty = !items.some(item => item.count);
-    const button = el('button', { type: 'button', className: 'btn', disabled: empty, textContent: '이미지로 저장' });
-    const exportButton = el('button', { type: 'button', className: 'btn', disabled: empty, textContent: '선택한 피드백 파일 저장' });
-    const copyLink = el('button', { type: 'button', className: 'btn', textContent: '조별 공개 링크 복사' });
-    const msg = el('p', { className: 'form-msg', ariaLive: 'polite' });
+    const button = el('button', { type: 'button', className: 'btn', disabled: publishing || empty, textContent: '이미지로 저장' });
+    const publishButton = el('button', { type: 'button', className: 'btn publish-button',
+      disabled: publishing || (empty && !published[index]?.publishedAt), textContent: '공개 게시' });
+    const copyLink = el('button', { type: 'button', className: 'btn', disabled: !published[index]?.publishedAt, textContent: '조별 공개 링크 복사' });
+    const msg = el('p', { className: 'form-msg', ariaLive: 'polite', textContent: publishMessages.get(index) ||
+      (published[index]?.publishedAt ? '게시된 내용이 있어요. 선택을 바꾸면 공개 게시를 눌러 갱신해 주세요.' : '공개 게시를 누르면 이 조의 공개 페이지에 반영돼요.') });
     button.addEventListener('click', () => saveImage(card, group, button, msg));
-    exportButton.addEventListener('click', () => {
-      try {
-        const data = { publishedAt: new Date().toISOString(), card: { group, items } };
-        downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' }), `${group} 공개 피드백.json`);
-        msg.textContent = '';
-      } catch {
-        msg.textContent = '피드백 파일을 저장하지 못했어요. 다시 눌러 주세요.';
-      }
-    });
+    publishButton.addEventListener('click', () => publishCard(index, items));
     const publicUrl = new URL(`feedback.html?group=${index + 1}`, pageUrl).href;
     copyLink.addEventListener('click', () => copyText(publicUrl, copyLink));
     return el('div', { className: 'share-card-block' }, card,
-      el('div', { className: 'share-card-actions' }, button, exportButton, copyLink, msg));
+      el('div', { className: 'share-card-actions' }, publishButton, button, copyLink, msg));
   }));
+}
+
+async function publishCard(index, items) {
+  if (publishing) return;
+  publishing = true;
+  publishMessages.set(index, '게시하는 중이에요...');
+  $('#refresh').disabled = true;
+  $('#share-toggle').disabled = true;
+  for (const checkbox of document.querySelectorAll('#results input[type=checkbox]')) checkbox.disabled = true;
+  renderShareCards();
+  try {
+    const data = await post({ action: 'publish', pin: read(session, PIN_KEY), group: index + 1,
+      items: items.map((item) => ({ feedbacks: item.feedbacks })) });
+    if (!data.ok) {
+      publishMessages.set(index, data.error === 'pin' ? '비밀번호를 다시 확인해 주세요. 새로고침 후 로그인해 주세요.' :
+        data.error === 'busy' ? '다른 요청을 처리하고 있어요. 잠시 후 다시 눌러 주세요.' : '게시하지 못했어요. 다시 눌러 주세요.');
+    } else {
+      published[index] = data;
+      publishMessages.set(index, '공개 페이지에 게시했어요. 조별 공개 링크를 복사해 주세요.');
+    }
+  } catch {
+    publishMessages.set(index, '게시하지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.');
+  } finally {
+    publishing = false;
+    $('#refresh').disabled = false;
+    $('#share-toggle').disabled = publishing || (selected.size === 0 && !hasPublished() && $('#share-view').hidden);
+    for (const checkbox of document.querySelectorAll('#results input[type=checkbox]')) checkbox.disabled = false;
+    renderShareCards();
+  }
 }
 
 async function saveImage(card, group, button, msg) {

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_TOPICS, newDeviceId, snapshot, groupTopics, feedbackFor, groupCopyText, topicLabel, shareCards, selectedShareCards } from '../logic.js';
+import { DEFAULT_TOPICS, newDeviceId, snapshot, groupTopics, feedbackFor, groupCopyText, topicLabel, shareCards, selectedShareCards, publishedSelection } from '../logic.js';
 import { loadServer } from './fake-gas.mjs';
 
 test('화면 기본 주제 목록은 서버 setup 목록과 같다', () => {
@@ -91,4 +91,14 @@ test('공유 카드에는 체크한 피드백만 들어가고 선택하지 않�
   assert.equal(JSON.stringify(cards).includes('비공개로 둘 의견'), false);
   assert.equal(JSON.stringify(cards).includes('다른 주제 의견'), false);
   assert.ok(selectedShareCards(DEFAULT_TOPICS, entries, new Set()).every(card => card.items.every(item => item.count === 0)));
+});
+
+test('게시한 선택을 복원하고 새 응답과 같은 내용의 추가 응답은 자동 선택하지 않는다', () => {
+  const old = [entry('민지', { 0: '선별 의견' }), entry('', { 0: '같은 의견' }), entry('', { 0: '같은 의견' })];
+  const cards = selectedShareCards(DEFAULT_TOPICS, old, new Set(['1:0', '1:1']));
+  const published = cards.map(card => ({ card, publishedAt: '2026-10-06T00:00:00.000Z' }));
+  const current = [entry('신규', { 0: '새 의견' }), ...old];
+  assert.deepEqual([...publishedSelection(DEFAULT_TOPICS, current, published)], ['1:1', '1:2']);
+  assert.equal(JSON.stringify(selectedShareCards(DEFAULT_TOPICS, current, publishedSelection(DEFAULT_TOPICS, current, published))).includes('새 의견'), false);
+  assert.equal(publishedSelection(DEFAULT_TOPICS, current, []).size, 0);
 });
