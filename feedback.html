@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="color-scheme" content="light dark">
+  <meta name="robots" content="noindex">
+  <title>송도지구 공개 피드백</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="module" src="public-feedback.js"></script>
+</head>
+<body data-group-count="4">
+  <main id="public-feedback" class="page">
+    <header class="page-head">
+      <p class="org">송도지구 지구모임</p>
+      <h1>공개 피드백</h1>
+      <p class="when" id="published-at"></p>
+      <p class="help">관리자가 선별한 피드백이에요. 이름을 비운 응답은 익명으로 표시돼요.</p>
+    </header>
+    <p class="form-msg" id="public-msg" role="status">피드백을 불러오는 중이에요...</p>
+    <button type="button" class="btn" id="public-retry" hidden>다시 불러오기</button>
+    <div id="public-cards"></div>
+  </main>
+</body>
+</html>

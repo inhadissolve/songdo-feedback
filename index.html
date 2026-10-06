@@ -76,7 +76,9 @@
           <h2>피드백</h2>
           <button type="button" class="btn" id="refresh">새로고침</button>
         </div>
-        <button type="button" class="btn" id="share-toggle" aria-expanded="false" aria-controls="share-view">공유용 보기</button>
+        <button type="button" class="btn" id="share-toggle" aria-expanded="false" aria-controls="share-view" disabled>공유용 보기</button>
+        <p class="form-msg" id="selected-count" aria-live="polite">선택한 피드백 0개</p>
+        <p class="selection-help">공개할 피드백을 아래에서 체크해 주세요. 새로고침하면 선택이 초기화돼요. 저장한 피드백 파일을 전달하면 조별 공개 페이지에 반영할 수 있어요.</p>
         <section id="share-view" aria-label="공유용 피드백" hidden>
           <div class="share-toolbar">
             <h3>공유용 보기</h3>

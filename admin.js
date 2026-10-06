@@ -1,6 +1,6 @@
 // 관리자 화면(#admin). 비밀번호는 서버가 확인하고, 이 탭을 닫을 때까지만 기억한다.
 import { el, post, read, write, session, getTopicList, setTopicList, STORE } from './app.js';
-import { groupTopics, feedbackFor, groupCopyText, topicLabel, shareCards } from './logic.js';
+import { groupTopics, feedbackFor, groupCopyText, topicLabel, selectedShareCards } from './logic.js';
 
 const PIN_KEY = `${STORE}:pin`;
 const $ = (sel) => document.querySelector(sel);
@@ -8,6 +8,7 @@ const pageUrl = location.origin + location.pathname;
 let lastEntries = [];
 let fieldsRendered = false;
 let imageModule;
+const selected = new Set();
 
 $('#share-url').textContent = pageUrl;
 $('#copy-link').addEventListener('click', (e) => copyText(pageUrl, e.currentTarget));
@@ -37,6 +38,7 @@ $('#share-toggle').addEventListener('click', (e) => {
   view.hidden = !view.hidden;
   e.currentTarget.setAttribute('aria-expanded', String(!view.hidden));
   e.currentTarget.textContent = view.hidden ? '공유용 보기' : '공유용 보기 닫기';
+  e.currentTarget.disabled = selected.size === 0 && view.hidden;
   if (!view.hidden) renderShareCards();
 });
 $('#print-all').addEventListener('click', () => window.print());
@@ -104,6 +106,7 @@ async function load(pin) {
     fieldsRendered = true;
   }
   lastEntries = data.entries;
+  selected.clear();
   renderResults();
   return null;
 }
@@ -151,7 +154,7 @@ async function saveTopics(e) {
 function renderResults() {
   $('#results-msg').textContent = `응답한 사람 ${lastEntries.length}명`;
   $('#results').replaceChildren(...groupTopics(getTopicList()).map((g) => {
-    const copy = el('button', { type: 'button', className: 'btn', textContent: `${g.group} 복사` });
+    const copy = el('button', { type: 'button', className: 'btn', textContent: `${g.group} 원본 복사` });
     copy.addEventListener('click', () => copyText(groupCopyText(g, lastEntries), copy));
     const section = el('section', { className: 'result-group' },
       el('div', { className: 'panel-head' }, el('h3', { textContent: g.group }), copy));
@@ -159,10 +162,21 @@ function renderResults() {
       const items = feedbackFor(t, lastEntries);
       const list = el('ul', { className: 'feedback-list' });
       if (!items.length) list.append(el('li', { className: 'empty', textContent: '아직 피드백이 없어요.' }));
-      for (const f of items) {
+      for (const [index, f] of items.entries()) {
+        const key = `${t.id}:${index}`;
+        const checkbox = el('input', { type: 'checkbox', checked: selected.has(key) });
+        checkbox.addEventListener('change', () => {
+          if (checkbox.checked) selected.add(key);
+          else selected.delete(key);
+          $('#selected-count').textContent = `선택한 피드백 ${selected.size}개`;
+          $('#share-toggle').disabled = selected.size === 0 && $('#share-view').hidden;
+          if (!$('#share-view').hidden) renderShareCards();
+        });
         list.append(el('li', {},
           el('p', { className: 'feedback-text', textContent: f.text }),
-          el('p', { className: 'feedback-name', textContent: f.name })));
+          el('p', { className: 'feedback-name', textContent: f.name }),
+          el('label', { className: 'feedback-select' }, checkbox,
+            el('span', { textContent: '공개 피드백에 포함' }))));
       }
       section.append(
         el('h4', { textContent: topicLabel(t) }),
@@ -171,24 +185,44 @@ function renderResults() {
     }
     return section;
   }));
+  $('#selected-count').textContent = `선택한 피드백 ${selected.size}개`;
+  $('#share-toggle').disabled = selected.size === 0 && $('#share-view').hidden;
   if (!$('#share-view').hidden) renderShareCards();
 }
 
 function renderShareCards() {
-  $('#share-cards').replaceChildren(...shareCards(getTopicList(), lastEntries).map(({ group, items }) => {
+  $('#print-all').disabled = selected.size === 0;
+  $('#share-cards').replaceChildren(...selectedShareCards(getTopicList(), lastEntries, selected).map(({ group, items }, index) => {
     const card = el('article', { className: 'share-card' }, el('h3', { textContent: `${group} 피드백` }));
-    for (const { label, count, texts } of items) {
+    for (const { label, count, feedbacks } of items) {
       const list = el('ul', { className: 'feedback-list' });
-      if (!count) list.append(el('li', { className: 'empty', textContent: '아직 피드백이 없어요.' }));
-      for (const text of texts) list.append(el('li', {}, el('p', { className: 'feedback-text', textContent: text })));
+      if (!count) list.append(el('li', { className: 'empty', textContent: '선택한 피드백이 없어요.' }));
+      for (const { name, text } of feedbacks) list.append(el('li', {},
+        el('p', { className: 'feedback-text', textContent: text }),
+        el('p', { className: 'feedback-name', textContent: name })));
       card.append(el('section', { className: 'share-topic' },
         el('h4', { textContent: label }),
         el('p', { className: 'count', textContent: `피드백 ${count}개` }), list));
     }
-    const button = el('button', { type: 'button', className: 'btn', textContent: '이미지로 저장' });
+    const empty = !items.some(item => item.count);
+    const button = el('button', { type: 'button', className: 'btn', disabled: empty, textContent: '이미지로 저장' });
+    const exportButton = el('button', { type: 'button', className: 'btn', disabled: empty, textContent: '선택한 피드백 파일 저장' });
+    const copyLink = el('button', { type: 'button', className: 'btn', textContent: '조별 공개 링크 복사' });
     const msg = el('p', { className: 'form-msg', ariaLive: 'polite' });
     button.addEventListener('click', () => saveImage(card, group, button, msg));
-    return el('div', { className: 'share-card-block' }, card, el('div', { className: 'share-card-actions' }, button, msg));
+    exportButton.addEventListener('click', () => {
+      try {
+        const data = { publishedAt: new Date().toISOString(), card: { group, items } };
+        downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8' }), `${group} 공개 피드백.json`);
+        msg.textContent = '';
+      } catch {
+        msg.textContent = '피드백 파일을 저장하지 못했어요. 다시 눌러 주세요.';
+      }
+    });
+    const publicUrl = new URL(`feedback.html?group=${index + 1}`, pageUrl).href;
+    copyLink.addEventListener('click', () => copyText(publicUrl, copyLink));
+    return el('div', { className: 'share-card-block' }, card,
+      el('div', { className: 'share-card-actions' }, button, exportButton, copyLink, msg));
   }));
 }
 
@@ -208,28 +242,22 @@ async function saveImage(card, group, button, msg) {
       skipFonts: true, // 공유 카드는 시스템 글꼴을 써서 외부 웹폰트 다운로드가 필요 없다.
     });
     if (!blob) throw new Error('PNG 생성 실패');
-    const file = new File([blob], `${group} 피드백.png`, { type: 'image/png' });
-    if (navigator.share && navigator.canShare?.({ files: [file] })) {
-      try {
-        await navigator.share({ files: [file] });
-        return;
-      } catch (error) {
-        if (error.name === 'AbortError') return;
-        // 공유 권한이나 사용자 활성화가 막히면 만들어 둔 PNG를 다운로드한다.
-      }
-    }
-    const url = URL.createObjectURL(blob);
-    const link = el('a', { href: url, download: file.name });
-    document.body.append(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 60000);
+    downloadBlob(blob, `${group} 피드백.png`);
   } catch {
     msg.textContent = '이미지를 만들지 못했어요. 화면을 캡처해 주세요.';
   } finally {
     button.disabled = false;
     button.textContent = '이미지로 저장';
   }
+}
+
+function downloadBlob(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const link = el('a', { href: url, download: name });
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
 // 카톡 안 브라우저처럼 clipboard API가 막힌 곳은 execCommand로 대신한다.

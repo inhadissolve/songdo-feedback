@@ -4,6 +4,11 @@
 
 - 참석자: https://inhadissolve.github.io/songdo-feedback/
 - 관리자: https://inhadissolve.github.io/songdo-feedback/#admin
+- 조별 공개 링크: `https://inhadissolve.github.io/songdo-feedback/feedback.html?group=1` (1~4는 관리자 화면의 조 순서)
+
+관리자는 원본 피드백의 **공개 피드백에 포함**을 체크한 뒤 **공유용 보기**에서 선택한 항목만 확인한다. **이미지로 저장**은 공유창 없이 PNG를 다운로드한다. **선택한 피드백 파일 저장**은 해당 조의 선택 내용만 저장하고, **조별 공개 링크 복사**는 그 조의 링크를 복사한다. 새로고침하면 선택은 초기화된다.
+
+전달받은 선별 파일을 해당 조의 `published-feedback/group-1.json` 등에 반영하고 배포하면 공개 페이지에 나타난다. 선별 전 파일은 비어 있다. 작성자 이름을 포함하며 이름이 비었으면 익명으로 표시한다. 이후 응답은 자동 반영되지 않는다. 조별 링크는 화면을 나누는 용도이며 접근 권한을 제한하지 않는다.
 
 ## 서버(Apps Script) 설정
 

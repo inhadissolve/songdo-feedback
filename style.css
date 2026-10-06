@@ -198,7 +198,7 @@ input:focus, textarea:focus {
 .topic-fields { display: grid; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
 .topic-fields-name { margin: 0; font-size: 17px; font-weight: 800; }
 
-/* 이름 없는 공유 카드. PNG에서도 같은 시스템 글꼴로 그린다. */
+/* 공유 카드. PNG에서도 같은 시스템 글꼴로 그린다. */
 #share-toggle { margin-top: 12px; }
 #share-view { margin-top: 20px; }
 .share-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
@@ -217,13 +217,27 @@ input:focus, textarea:focus {
 .share-card h3 { margin: 0 0 16px; color: var(--accent); font-size: 24px; line-height: 1.35; }
 .share-card h4 { margin: 0 0 4px; font-size: 18px; line-height: 1.5; }
 .share-card .count, .share-card .feedback-list li.empty { font-size: 16px; }
+.share-card .feedback-name { font-size: 16px; }
 .share-topic + .share-topic { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border); }
 .share-card-actions { margin-top: 12px; }
 .share-card-actions .form-msg:empty { display: none; }
+.share-card-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.share-card-actions .form-msg { flex-basis: 100%; }
+.feedback-select { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 16px; cursor: pointer; }
+.feedback-select input { width: 20px; height: 20px; margin: 0; padding: 0; accent-color: var(--accent); }
+.selection-help { font-size: 16px; color: var(--muted); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+
+/* 저장한 시점의 피드백을 보여 주는 공개 페이지 */
+.public-card + .public-card { margin-top: 28px; }
+.public-card h2 { margin: 0 0 16px; color: var(--accent); font-size: 24px; line-height: 1.35; }
+.public-card .share-topic h3 { margin: 0 0 4px; color: var(--fg); font-size: 18px; line-height: 1.5; }
+.public-card { scroll-margin-top: 16px; }
 
 @page { size: A4 portrait; margin: 12mm; }
 @media print {
-  :root:has(#admin:not([hidden]) #admin-body:not([hidden]) #share-view:not([hidden])) {
+  :root:has(#admin:not([hidden]) #admin-body:not([hidden]) #share-view:not([hidden])),
+  :root:has(#public-feedback) {
     --bg: #f4f6f3;
     --surface: #fbfcfa;
     --fg: #1b2420;
@@ -247,4 +261,8 @@ input:focus, textarea:focus {
   .share-card-block:last-child, .share-card-block:last-child .share-card { page-break-after: auto; break-after: auto; }
   .share-card .feedback-list { display: block; }
   .share-card .feedback-list li + li { margin-top: 8px; }
+  #public-feedback { max-width: none; padding: 0; }
+  #public-feedback .page-head, #public-feedback .public-groups { display: none; }
+  .public-card { margin: 0 !important; }
+  .public-card:last-child { page-break-after: auto; }
 }

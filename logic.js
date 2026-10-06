@@ -50,13 +50,26 @@ export function groupCopyText(group, entries) {
   return lines.join('\n');
 }
 
-// 공유 카드에는 작성자 이름을 넣지 않는다.
+// 공유 카드와 공개 페이지에 표시할 내용. 이름을 비웠으면 '익명'으로 표시한다.
 export function shareCards(topics, entries) {
   return groupTopics(topics).map(({ group, topics: list }) => ({
     group,
     items: list.map((t) => {
-      const texts = feedbackFor(t, entries).map((f) => f.text);
-      return { label: topicLabel(t), count: texts.length, texts };
+      const feedbacks = feedbackFor(t, entries);
+      return { label: topicLabel(t), count: feedbacks.length, feedbacks };
+    }),
+  }));
+}
+
+// 관리자 화면에서 체크한 항목만 공유한다. 키는 '주제 ID:피드백 순서'다.
+export function selectedShareCards(topics, entries, selected) {
+  const groups = groupTopics(topics);
+  return shareCards(topics, entries).map((card, groupIndex) => ({
+    group: card.group,
+    items: card.items.map((item, topicIndex) => {
+      const topicId = groups[groupIndex].topics[topicIndex].id;
+      const feedbacks = item.feedbacks.filter((_, index) => selected.has(`${topicId}:${index}`));
+      return { label: item.label, count: feedbacks.length, feedbacks };
     }),
   }));
 }
