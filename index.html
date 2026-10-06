@@ -76,6 +76,14 @@
           <h2>피드백</h2>
           <button type="button" class="btn" id="refresh">새로고침</button>
         </div>
+        <button type="button" class="btn" id="share-toggle" aria-expanded="false" aria-controls="share-view">공유용 보기</button>
+        <section id="share-view" aria-label="공유용 피드백" hidden>
+          <div class="share-toolbar">
+            <h3>공유용 보기</h3>
+            <button type="button" class="btn" id="print-all">전체 인쇄 / PDF</button>
+          </div>
+          <div id="share-cards"></div>
+        </section>
         <p class="form-msg" id="results-msg" aria-live="polite"></p>
         <div id="results"></div>
       </section>

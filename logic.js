@@ -49,3 +49,14 @@ export function groupCopyText(group, entries) {
   }
   return lines.join('\n');
 }
+
+// 공유 카드에는 작성자 이름을 넣지 않는다.
+export function shareCards(topics, entries) {
+  return groupTopics(topics).map(({ group, topics: list }) => ({
+    group,
+    items: list.map((t) => {
+      const texts = feedbackFor(t, entries).map((f) => f.text);
+      return { label: topicLabel(t), count: texts.length, texts };
+    }),
+  }));
+}

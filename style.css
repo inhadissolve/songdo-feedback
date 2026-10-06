@@ -197,3 +197,54 @@ input:focus, textarea:focus {
 .feedback-name { margin: 4px 0 0; font-size: 14px; color: var(--muted); }
 .topic-fields { display: grid; gap: 8px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
 .topic-fields-name { margin: 0; font-size: 17px; font-weight: 800; }
+
+/* 이름 없는 공유 카드. PNG에서도 같은 시스템 글꼴로 그린다. */
+#share-toggle { margin-top: 12px; }
+#share-view { margin-top: 20px; }
+.share-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.share-toolbar h3 { margin: 0; font-size: 20px; }
+.share-card-block + .share-card-block { margin-top: 28px; }
+.share-card {
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--radius);
+  background: var(--bg);
+  font-family: -apple-system, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  font-size: 16px;
+}
+.share-card h3 { margin: 0 0 16px; color: var(--accent); font-size: 24px; line-height: 1.35; }
+.share-card h4 { margin: 0 0 4px; font-size: 18px; line-height: 1.5; }
+.share-card .count, .share-card .feedback-list li.empty { font-size: 16px; }
+.share-topic + .share-topic { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border); }
+.share-card-actions { margin-top: 12px; }
+.share-card-actions .form-msg:empty { display: none; }
+
+@page { size: A4 portrait; margin: 12mm; }
+@media print {
+  :root:has(#admin:not([hidden]) #admin-body:not([hidden]) #share-view:not([hidden])) {
+    --bg: #f4f6f3;
+    --surface: #fbfcfa;
+    --fg: #1b2420;
+    --muted: #56625b;
+    --border: #d3dad5;
+    --accent: #2f6b4f;
+    color-scheme: light;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+  body:has(#admin:not([hidden]) #share-view:not([hidden])) #admin > .page-head,
+  #admin:has(#share-view:not([hidden])) #admin-body > .panel:not(:has(#share-view)),
+  #admin:has(#share-view:not([hidden])) #admin-body > .panel > :not(#share-view),
+  #admin:has(#share-view:not([hidden])) .share-toolbar,
+  #admin:has(#share-view:not([hidden])) .share-card-actions { display: none !important; }
+  #admin:has(#share-view:not([hidden])) { max-width: none; margin: 0; padding: 0; }
+  #admin:has(#share-view:not([hidden])) .panel,
+  #share-view { margin: 0; padding: 0; border: 0; }
+  .share-card-block { margin: 0 !important; break-inside: avoid; page-break-after: always; break-after: page; }
+  .share-card { width: 186mm; zoom: var(--print-scale, 1); break-inside: avoid; page-break-after: always; }
+  .share-card-block:last-child, .share-card-block:last-child .share-card { page-break-after: auto; break-after: auto; }
+  .share-card .feedback-list { display: block; }
+  .share-card .feedback-list li + li { margin-top: 8px; }
+}
